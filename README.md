@@ -2,7 +2,7 @@
 Switch between videos and interactive word cloud.
 
 ### Requirements
-* wordcloud from https://github.com/amueller/word\_cloud
+* wordcloud from https://github.com/amueller/word_cloud
   (install with `pip3 install wordcloud` or using your package manager)
 * Qt5, including multimedia widgets
 * inkscape, for converting .svg image to .png image with correct resolution.

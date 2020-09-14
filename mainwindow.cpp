@@ -18,7 +18,8 @@ MainWindow::MainWindow(QWidget *parent) :
     process(new QProcess(this)),
     lineedit(new QLineEdit(this)),
     weightedit(new QLineEdit(this)),
-    slider(new QSlider(Qt::Horizontal, this))
+    slider(new QSlider(Qt::Horizontal, this)),
+    logerr(new QLabel(this))
 {
     // Create the layout for main window.
     setLayout(new QVBoxLayout());
@@ -40,6 +41,14 @@ MainWindow::MainWindow(QWidget *parent) :
         QPushButton *button = new QPushButton("update", this);
         connect(button, &QPushButton::released, this, &MainWindow::updateWordcloud);
         layout()->addWidget(button);
+    }
+
+    {
+        QPalette palette;
+        palette.setColor(QPalette::Foreground, Qt::red);
+        logerr->setPalette(palette);
+        logerr->setFont(QFont("Titillium", 20));
+        layout()->addWidget(logerr);
     }
 
     {
@@ -253,26 +262,38 @@ void MainWindow::chooseVideo()
 
 void MainWindow::updateWordcloud()
 {
+    logerr->setText("");
     if (!lineedit->text().isEmpty())
     {
-        QFile file(wordlist_path);
-        file.open(QFile::Append);
-        bool ok;
-        int weight = weightedit->text().toUInt(&ok);
-        if (!ok)
+        if (word_regex.exactMatch(lineedit->text()))
         {
-            qWarning() << "Invalid weight" << weightedit->text();
-            weightedit->setText("10");
-            weight = 10;
+            QFile file(wordlist_path);
+            file.open(QFile::Append);
+            bool ok;
+            int weight = weightedit->text().toUInt(&ok);
+            if (!ok)
+            {
+                qWarning() << "Invalid weight" << weightedit->text();
+                logerr->setText("<b>Ignored input:</b> Invalid weight " + weightedit->text() + " (must be a positive integer)");
+                weightedit->setText(QString::number(defaultweight));
+                return;
+            }
+            else if (weight > maxweight)
+                weight = maxweight;
+            const QByteArray rawtext = (lineedit->text() + " ").toUtf8();
+            while (weight-- > 0)
+                file.write(rawtext);
+            file.write("\n");
+            file.close();
+            lineedit->clear();
+            weightedit->setText(QString::number(defaultweight));
         }
-        else if (weight > maxweight)
-            weight = maxweight;
-        const QByteArray rawtext = (lineedit->text() + " ").toUtf8();
-        while (weight-- > 0)
-            file.write(rawtext);
-        file.write("\n");
-        file.close();
-        lineedit->clear();
+        else
+        {
+            qWarning() << "Invalid word:" << lineedit->text();
+            logerr->setText("<b>Ignored input:</b> Invalid word.");
+            return;
+        }
     }
     process->start();
 }
@@ -301,6 +322,8 @@ void MainWindow::initParameters(const QCommandLineParser &parser)
     videoitem->setSize(window_size);
 
     // String valued arguments.
+    if (!parser.value("regex").isEmpty())
+        word_regex = QRegExp(parser.value("regex"));
     if (!parser.value("playlist").isEmpty())
         playlist_path = parser.value("playlist");
     loadJson(playlist_path);
@@ -334,6 +357,14 @@ void MainWindow::initParameters(const QCommandLineParser &parser)
         else
             qWarning() << "Invalid value for max_weight:" << parser.value("max_weight");
     }
+    if (!parser.value("default_weight").isEmpty())
+    {
+        const int weight = parser.value("default_weight").toUInt();
+        if (weight > 0)
+            defaultweight = weight;
+        else
+            qWarning() << "Invalid value for default_weight:" << parser.value("default_weight");
+    }
     if (!parser.value("fade_in_duration").isEmpty())
     {
         bool ok;
@@ -365,7 +396,10 @@ void MainWindow::initParameters(const QCommandLineParser &parser)
     {
         const int fontsize = parser.value("font_size").toUInt();
         if (fontsize > 3)
+        {
             setFont(QFont("Titillium", fontsize));
+            logerr->setFont(QFont("Titillium", fontsize/2));
+        }
         else
             qWarning() << "Invalid value for font_size:" << parser.value("font_size");
     }

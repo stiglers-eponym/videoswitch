@@ -21,6 +21,7 @@
 #include <QVBoxLayout>
 #include <QCommandLineParser>
 #include <QSlider>
+#include <QLabel>
 
 
 /// Copy of QGraphicsPixmapItem, which can be used in the Qt animation framework.
@@ -72,6 +73,8 @@ class MainWindow : public QWidget
     QLineEdit *weightedit;
     /// Slider showing position in video.
     QSlider *slider;
+    /// Label for error messages.
+    QLabel *logerr;
 
     /// Time stamp of last modification of the word cloud image.
     QDateTime last_modified;
@@ -81,6 +84,7 @@ class MainWindow : public QWidget
     QString pixmap_path = "/tmp/wordcloud.png";
     QString mask_path = "mask.png";
     QString wordlist_path = "/tmp/wordlist.txt";
+    QRegExp word_regex{"\\w[\\w']+"};
 
     /// Video fade in durations in ms.
     int fade_in_duration = 1000;
@@ -92,6 +96,8 @@ class MainWindow : public QWidget
     QSize window_size = {1920, 1080};
     /// Maximum weight of word added to word cloud.
     int maxweight = 100;
+    /// Default weight of word added to word cloud.
+    int defaultweight = 10;
 
 public:
     MainWindow(QWidget *parent = nullptr);
